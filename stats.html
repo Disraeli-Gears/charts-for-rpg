@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Character Stats Chart</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-top: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 180px;
+            margin-bottom: 20px;
+            padding: 10px;
+            font-family: monospace;
+            border-radius: 3px;
+            border: 1px solid #e0e0e0;
+        }
+        button, .file-button {
+            background-color: #2384E8;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover, .file-button:hover {
+            background-color: #1a67b3;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .file-input {
+            display: none;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .tips {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f7f7f7;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .input-section, .chart-section {
+            margin-bottom: 30px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 8px 16px;
+            background-color: #f1f1f1;
+            border-radius: 3px 3px 0 0;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        .tab.active {
+            background-color: #2384E8;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .sort-options {
+            margin: 15px 0;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 15px;
+            margin-bottom: 8px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Character Stats Chart</h1>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('import')">Import Data</div>
+            <div class="tab" onclick="switchTab('manual')">Manual Entry</div>
+        </div>
+        
+        <div id="import-tab" class="tab-content active">
+            <div class="input-section">
+                <h3>Import from Notion (3 simple steps)</h3>
+                
+                <div class="steps">
+                    <p><strong>Step 1:</strong> Export your Notion database</p>
+                    <ul>
+                        <li>Click "..." in your database view</li>
+                        <li>Select "Export"</li>
+                        <li>Choose CSV format</li>
+                        <li>Click "Export"</li>
+                    </ul>
+                    
+                    <p><strong>Step 2:</strong> Upload the CSV file</p>
+                    <div class="controls">
+                        <label for="csvFile" class="file-button">Choose CSV File</label>
+                        <input type="file" id="csvFile" class="file-input" accept=".csv">
+                        <span id="fileStatus">No file selected</span>
+                    </div>
+                    
+                    <p><strong>Step 3:</strong> Select columns to use</p>
+                    <div class="controls" id="columnSelectors" style="display: none;">
+                        <div>
+                            <label for="nameColumn">Stat Name Column:</label>
+                            <select id="nameColumn"></select>
+                        </div>
+                        <div style="margin-left: 20px;">
+                            <label for="valueColumn">Stat Value Column:</label>
+                            <select id="valueColumn"></select>
+                        </div>
+                    </div>
+                    
+                    <button id="processButton" style="display: none;" onclick="processCSV()">Create Chart</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="manual-tab" class="tab-content">
+            <div class="input-section">
+                <label for="statsInput">Enter your stats in CSV format (Name,Value):</label>
+                <textarea id="statsInput">Knowledge,80
+Spirit,65
+Strategy & tactics,90
+Charisma,75
+Intelligence,85
+Vitality,70
+Endurance,75
+Willpower,80
+Mana,90
+Agility,65
+Speed,70
+Strength,60
+Illusion,85
+Weapon arts,75
+Alteration,80
+Restoration,70
+Conjuration,75
+Destruction,85</textarea>
+                
+                <button onclick="generateChartFromText()">Generate Chart</button>
+            </div>
+        </div>
+        
+        <div class="chart-section">
+            <div class="sort-options">
+                <input type="checkbox" id="sortByValue" checked>
+                <label for="sortByValue" style="display: inline;">Sort by highest value first</label>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="statsChart"></canvas>
+            </div>
+            
+            <div class="legend" id="chartLegend"></div>
+        </div>
+        
+        <div class="tips">
+            <h3>Tips:</h3>
+            <ul>
+                <li><strong>Color Coding:</strong> Stats are color-coded by category.</li>
+                <li><strong>Notion Export:</strong> Export your database as CSV for quick updates.</li>
+                <li><strong>Sorting:</strong> Toggle the checkbox to sort stats by value or keep original order.</li>
+                <li><strong>Viewing:</strong> Hover over bars to see exact values.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+        let csvData = null;
+        let currentStatNames = [];
+        let currentStatValues = [];
+        
+        // Define stat categories and colors with updated names
+        const statCategories = {
+            "Physical": {
+                stats: ["Strength", "Endurance", "Vitality"],
+                color: "rgba(220, 53, 69, 0.7)",
+                borderColor: "rgba(220, 53, 69, 1)"
+            },
+            "Technique": {
+                stats: ["Speed", "Agility", "Weapon arts"],
+                color: "rgba(255, 193, 7, 0.7)",
+                borderColor: "rgba(255, 193, 7, 1)"
+            },
+            "Magicka": {
+                stats: ["Mana", "Willpower", "Intelligence"],
+                color: "rgba(13, 110, 253, 0.7)",
+                borderColor: "rgba(13, 110, 253, 1)"
+            },
+            "Spells": {
+                stats: ["Destruction", "Conjuration", "Illusion"],
+                color: "rgba(111, 66, 193, 0.7)",
+                borderColor: "rgba(111, 66, 193, 1)"
+            },
+            "Utility": {
+                stats: ["Knowledge", "Restoration", "Alteration"],
+                color: "rgba(32, 201, 151, 0.7)",
+                borderColor: "rgba(32, 201, 151, 1)"
+            },
+            "Persona": {
+                stats: ["Charisma", "Spirit", "Strategy & tactics"],
+                color: "rgba(255, 102, 0, 0.7)",  // Changed to orange to be more distinct
+                borderColor: "rgba(255, 102, 0, 1)"
+            }
+        };
+        
+        // Handle file input
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileStatus').innerText = file.name;
+                parseCSVFile(file);
+            }
+        });
+        
+        // Handle sort checkbox change
+        document.getElementById('sortByValue').addEventListener('change', function() {
+            if (currentStatNames.length > 0 && currentStatValues.length > 0) {
+                createChart(currentStatNames, currentStatValues);
+            }
+        });
+        
+        function parseCSVFile(file) {
+            Papa.parse(file, {
+                header: true,
+                complete: function(results) {
+                    csvData = results;
+                    console.log("Parsed CSV:", results);
+                    
+                    if (results.data && results.data.length > 0) {
+                        // Populate column selectors
+                        const headers = results.meta.fields;
+                        populateDropdown('nameColumn', headers, findBestNameColumn(headers));
+                        populateDropdown('valueColumn', headers, findBestValueColumn(headers));
+                        
+                        // Show column selectors and process button
+                        document.getElementById('columnSelectors').style.display = 'flex';
+                        document.getElementById('processButton').style.display = 'block';
+                    } else {
+                        alert('No data found in the CSV file.');
+                    }
+                },
+                error: function(error) {
+                    console.error("Error parsing CSV:", error);
+                    alert('Error parsing CSV: ' + error.message);
+                }
+            });
+        }
+        
+        function findBestNameColumn(headers) {
+            // Try to find the best column for stat names
+            const nameColumns = ['Name', 'Stat', 'StatName', 'Stat Name', 'Property'];
+            for (const name of nameColumns) {
+                if (headers.includes(name)) {
+                    return name;
+                }
+            }
+            return headers[0]; // Default to first column
+        }
+        
+        function findBestValueColumn(headers) {
+            // Try to find the best column for values
+            const valueColumns = ['Value', 'StatValue', 'Stat Value', 'Number', 'Amount', 'Current Value'];
+            for (const name of valueColumns) {
+                if (headers.includes(name)) {
+                    return name;
+                }
+            }
+            // Try to find a column that might contain numeric values (after the first column)
+            if (headers.length > 1) {
+                return headers[1];
+            }
+            return headers[0];
+        }
+        
+        function populateDropdown(id, options, selectedOption) {
+            const dropdown = document.getElementById(id);
+            dropdown.innerHTML = '';
+            
+            options.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option;
+                optionElement.text = option;
+                if (option === selectedOption) {
+                    optionElement.selected = true;
+                }
+                dropdown.appendChild(optionElement);
+            });
+        }
+        
+        function processCSV() {
+            if (!csvData) {
+                alert('Please upload a CSV file first.');
+                return;
+            }
+            
+            const nameColumn = document.getElementById('nameColumn').value;
+            const valueColumn = document.getElementById('valueColumn').value;
+            
+            const statNames = [];
+            const statValues = [];
+            
+            csvData.data.forEach(row => {
+                if (row[nameColumn] && row[valueColumn]) {
+                    statNames.push(row[nameColumn]);
+                    // Parse value as number, default to 0 if not a number
+                    const value = parseFloat(row[valueColumn]) || 0;
+                    statValues.push(value);
+                }
+            });
+            
+            if (statNames.length === 0) {
+                alert('No valid data found in the selected columns.');
+                return;
+            }
+            
+            currentStatNames = [...statNames];
+            currentStatValues = [...statValues];
+            createChart(statNames, statValues);
+        }
+        
+        function generateChartFromText() {
+            const csvText = document.getElementById('statsInput').value;
+            const lines = csvText.trim().split('\n');
+            
+            const statNames = [];
+            const statValues = [];
+            
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    statNames.push(parts[0].trim());
+                    statValues.push(parseFloat(parts[1].trim()) || 0);
+                }
+            });
+            
+            currentStatNames = [...statNames];
+            currentStatValues = [...statValues];
+            createChart(statNames, statValues);
+        }
+        
+        function getColorForStat(statName) {
+            // Find which category the stat belongs to
+            for (const [category, data] of Object.entries(statCategories)) {
+                if (data.stats.includes(statName)) {
+                    return {
+                        background: data.color,
+                        border: data.borderColor,
+                        category: category
+                    };
+                }
+            }
+            
+            // Default color for stats that don't match any category
+            return {
+                background: "rgba(128, 128, 128, 0.7)",
+                border: "rgba(128, 128, 128, 1)",
+                category: "Other"
+            };
+        }
+        
+        function createChart(statNames, statValues) {
+            let sortedData = [];
+            
+            // Create paired array of [name, value, color]
+            for (let i = 0; i < statNames.length; i++) {
+                const colorInfo = getColorForStat(statNames[i]);
+                sortedData.push({
+                    name: statNames[i],
+                    value: statValues[i],
+                    backgroundColor: colorInfo.background,
+                    borderColor: colorInfo.border,
+                    category: colorInfo.category
+                });
+            }
+            
+            // Sort by value if checkbox is checked
+            if (document.getElementById('sortByValue').checked) {
+                sortedData.sort((a, b) => b.value - a.value);
+            }
+            
+            // Extract sorted arrays
+            const sortedNames = sortedData.map(item => item.name);
+            const sortedValues = sortedData.map(item => item.value);
+            const backgroundColor = sortedData.map(item => item.backgroundColor);
+            const borderColor = sortedData.map(item => item.borderColor);
+            
+            // Destroy previous chart if it exists
+            if (myChart) {
+                myChart.destroy();
+            }
+            
+            // Create the chart
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedNames,
+                    datasets: [{
+                        label: 'Stat Value',
+                        data: sortedValues,
+                        backgroundColor: backgroundColor,
+                        borderColor: borderColor,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Value'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Stat'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            
+            // Create legend
+            createLegend();
+        }
+        
+        function createLegend() {
+            const legendContainer = document.getElementById('chartLegend');
+            legendContainer.innerHTML = '';
+            
+            // Add each category to the legend
+            for (const [category, data] of Object.entries(statCategories)) {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                
+                const colorBox = document.createElement('div');
+                colorBox.className = 'legend-color';
+                colorBox.style.backgroundColor = data.color;
+                
+                const label = document.createElement('span');
+                label.textContent = category;
+                
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(label);
+                legendContainer.appendChild(legendItem);
+            }
+        }
+        
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+        }
+        
+        // Generate chart with example data on load
+        window.onload = function() {
+            generateChartFromText();
+        };
+    </script>
+</body>
+</html>
